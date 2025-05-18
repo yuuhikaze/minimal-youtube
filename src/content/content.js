@@ -26,6 +26,17 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     }
 });
 
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+const debouncedReplaceHomePage = debounce(replaceHomePage, 200);
+const debouncedRemoveUnreadCountFromTitle = debounce(removeUnreadCountFromTitle, 200);
+
 function init() {
     let bodyList = document.querySelector("body");
     let headList = document.querySelector("head");
@@ -34,11 +45,11 @@ function init() {
         mutations.forEach(function (mutation) {
             if (oldHref != document.location.href) {
                 oldHref = document.location.href;
-                replaceHomePage();
+                debouncedReplaceHomePage();
             }
             if (mutation.target.tagName == "TITLE") {
                 // sometimes the title tag is in the body
-                removeUnreadCountFromTitle();
+                debouncedRemoveUnreadCountFromTitle();
             }
         });
     });
@@ -51,7 +62,7 @@ function init() {
     let titleObserver = new MutationObserver(function (mutations) {
         mutations.forEach(function (mutation) {
             if (mutation.target.tagName == "TITLE") {
-                removeUnreadCountFromTitle();
+                debouncedRemoveUnreadCountFromTitle();
             }
         });
     });
