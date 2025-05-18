@@ -8,8 +8,22 @@ chrome.storage.local.get("enabled", (data) => {
         window.onload = init();
         return;
     }
-
     displayBody();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === "local" && changes.enabled) {
+        const enabled = !!changes.enabled.newValue;
+        const root = document.documentElement;
+
+        if (enabled) {
+            root.classList.add("minimal-youtube");
+            init(); // or call a subset if you don’t want full re-init
+        } else {
+            root.classList.remove("minimal-youtube");
+            displayBody();
+        }
+    }
 });
 
 function init() {
@@ -100,11 +114,6 @@ function removeUnreadCountFromTitle() {
     // Remove unread count from title
     const newTitle = title.replace(/^\(\d+\)\s*/, "");
     document.title = newTitle;
-}
-
-function addMinimalYoutubeClassToHtml() {
-    let root = document.documentElement;
-    root.className += " minimal-youtube";
 }
 
 function displayBody() {
