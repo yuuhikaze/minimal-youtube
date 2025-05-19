@@ -3,8 +3,9 @@ let oldHref = document.location.href;
 
 chrome.storage.local.get("enabled", (data) => {
     const enabled = typeof data.enabled === "undefined" ? true : !!data.enabled;
+    const root = document.documentElement;
     if (enabled) {
-        addMinimalYoutubeClassToHtml();
+        root.classList.add("minimal-youtube");
         window.onload = init();
         return;
     }
@@ -28,7 +29,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 function debounce(func, wait) {
     let timeout;
-    return function (...args) {
+    return function(...args) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
@@ -41,8 +42,8 @@ function init() {
     let bodyList = document.querySelector("body");
     let headList = document.querySelector("head");
 
-    let observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
+    let observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
             if (oldHref != document.location.href) {
                 oldHref = document.location.href;
                 debouncedReplaceHomePage();
@@ -59,8 +60,8 @@ function init() {
    e.g. "(123) Rick Astley - Never Gonna Give You Up (Official Music Video)"
    to "Rick Astley - Never Gonna Give You Up (Official Music Video)"
   */
-    let titleObserver = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
+    let titleObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
             if (mutation.target.tagName == "TITLE") {
                 debouncedRemoveUnreadCountFromTitle();
             }
@@ -102,14 +103,14 @@ function replaceHomePage() {
 
         const input = document.querySelector(".search-input");
         const searchBtn = document.querySelector(".search-btn");
-        input.addEventListener("keypress", function (e) {
+        input.addEventListener("keypress", function(e) {
             if (e.key === "Enter") {
                 const inputValue = input.value;
                 window.location.href = `https://www.youtube.com/results?search_query=${inputValue}`;
             }
         });
 
-        searchBtn.addEventListener("click", function (e) {
+        searchBtn.addEventListener("click", function(e) {
             const inputValue = input.value;
             window.location.href = `https://www.youtube.com/results?search_query=${inputValue}`;
         });
@@ -130,3 +131,64 @@ function removeUnreadCountFromTitle() {
 function displayBody() {
     document.body.style.display = "block";
 }
+
+// Unfocus YT homepage button
+function observeAndUnfocusWithTimeout(timeout = 40000) {
+    const observer = new MutationObserver(() => {
+        const active = document.activeElement;
+
+        if (active && active !== document.body && typeof active.blur === 'function') {
+            active.blur();
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
+
+    setTimeout(() => observer.disconnect(), timeout);
+}
+
+observeAndUnfocusWithTimeout()
+
+// DISABLE AMBIENT MODE
+// credit: https://github.com/44yu5h/Youtube-Disable-Ambient-Ext
+let isMenuLoaded = false;
+const settingsButton = document.querySelector('.ytp-settings-button');
+let ambientMode, hideMenuItem;
+
+const observer = new MutationObserver(() => {
+    if (settingsButton) {
+        // Menu loads in DOM only when settings is opened/expanded: open and close quickly
+        settingsButton.click();
+        settingsButton.click();
+        isMenuLoaded = true;
+    }
+
+    if (isMenuLoaded) {
+        const ambientMenuItem = Array.from(document.querySelectorAll('.ytp-menuitem[role="menuitemcheckbox"]')).find(el => el.querySelector('.ytp-menuitem-label')?.textContent === "Ambient mode");
+        if (ambientMenuItem) {
+            observer.disconnect();
+            const toggleState = ambientMenuItem.getAttribute("aria-checked") === "true";
+            if (toggleState !== ambientMode) {
+                ambientMenuItem.click();
+            }
+            if (hideMenuItem) {
+                ambientMenuItem.style.display = 'none';
+            }
+        }
+    }
+});
+
+chrome.storage.sync.get(["ambientMode", "hideMenuItem"], (data) => {
+    ambientMode = data.ambientMode ?? false;
+    hideMenuItem = data.hideMenuItem ?? false;
+    observer.observe(document.body, { childList: true, subtree: true });
+    // Disconnect the observer after 40 sec if it cannot find the menu item
+    setTimeout(() => {
+        if (observer) {
+            observer.disconnect();
+        }
+    }, 40000);
+});
